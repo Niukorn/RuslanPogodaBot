@@ -138,7 +138,7 @@ async def get_weather(lat: float, lon: float):
     cache_key = f"{round(lat, 2)},{round(lon, 2)}"
     if cache_key in weather_cache:
         cached_data, cached_time = weather_cache[cache_key]
-        if datetime.now() - cached_time < WEATHER_TTL:
+        if datetime.now(MOSCOW_TZ) - cached_time < WEATHER_TTL:
             return cached_data
 
     s = await get_session()
@@ -151,9 +151,9 @@ async def get_weather(lat: float, lon: float):
         "daily": "weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max",
         "timezone": "auto",
     }
-    async with s.get(url, params=params, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+    async with s.get(url, params=params, timeout=aiohttp.ClientTimeout(total=10)) as resp:
         data = await resp.json()
-        weather_cache[cache_key] = (data, datetime.now())
+        weather_cache[cache_key] = (data, datetime.now(MOSCOW_TZ))
         return data
 
 
@@ -342,12 +342,15 @@ async def cmd_week(message: Message):
         await message.answer("Сначала напишите название города, затем /week")
         return
     city_info = user_last_city[user_id]
-    weather = await get_weather(city_info["lat"], city_info["lon"])
-    if "daily" not in weather:
-        await message.answer("❌ Не удалось получить прогноз на неделю. Попробуйте позже.")
-        return
-    result = format_weekly(city_info, weather)
-    await message.answer(result)
+    try:
+        weather = await get_weather(city_info["lat"], city_info["lon"])
+        if "daily" not in weather:
+            await message.answer("❌ Не удалось получить прогноз на неделю. Попробуйте позже.")
+            return
+        result = format_weekly(city_info, weather)
+        await message.answer(result)
+    except Exception as e:
+        await message.answer(f"Ошибка: {e}")
 
 
 @dp.message(Command("history"))
