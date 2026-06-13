@@ -97,8 +97,8 @@ user_last_city: dict[int, dict] = {}
 def city_header(city_info: dict) -> str:
     region = city_info.get("region", "")
     if region and region != city_info["name"]:
-        return f"🌍 {city_info['name']}, {region}, {city_info['country']}"
-    return f"🌍 {city_info['name']}, {city_info['country']}"
+        return f"🌍 {city_info['name']}, {region}"
+    return f"🌍 {city_info['name']}"
 MONTHS_RU = ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"]
 
 
@@ -362,7 +362,7 @@ async def cmd_history(message: Message):
     lines = ["📜 Ваши последние запросы:\n"]
     for i, entry in enumerate(user_history[user_id], 1):
         t = entry["time"].strftime("%H:%M")
-        lines.append(f"{i}. {entry['name']}, {entry['country']} ({t})")
+        lines.append(f"{i}. {entry['name']} ({t})")
     await message.answer("\n".join(lines))
 
 
