@@ -112,6 +112,19 @@ async def get_session() -> aiohttp.ClientSession:
     return session
 
 
+async def reverse_geocode(lat: float, lon: float) -> dict:
+    s = await get_session()
+    url = "https://nominatim.openstreetmap.org/reverse"
+    params = {"lat": lat, "lon": lon, "format": "json", "accept-language": "ru"}
+    headers = {"User-Agent": "RuslanPogodaBot/1.0"}
+    async with s.get(url, params=params, headers=headers, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+        data = await resp.json()
+        address = data.get("address", {})
+        city = address.get("city") or address.get("town") or address.get("village") or address.get("municipality") or "Ваше местоположение"
+        region = address.get("state") or address.get("county") or ""
+        return {"name": city, "region": region}
+
+
 async def get_coordinates(city: str):
     key = city.lower().strip()
     if key in CITY_DB:
@@ -383,12 +396,13 @@ async def cmd_alerts(message: Message):
 async def handle_location(message: Message):
     lat = message.location.latitude
     lon = message.location.longitude
+    geo = await reverse_geocode(lat, lon)
     city_info = {
-        "name": "Ваше местоположение",
+        "name": geo["name"],
         "lat": lat,
         "lon": lon,
         "country": "Россия",
-        "region": f"{round(lat, 4)}, {round(lon, 4)}",
+        "region": geo["region"],
     }
     save_history(message.from_user.id, city_info)
     weather = await get_weather(lat, lon)
