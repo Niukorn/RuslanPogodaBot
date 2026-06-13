@@ -243,7 +243,6 @@ def create_weather_card(city_info: dict, weather: dict) -> bytes:
     wind = current["windspeed"]
     code = current["weathercode"]
     description = WEATHER_CODES.get(code, "Неизвестно")
-    emoji = WEATHER_EMOJI.get(code, "🌤")
 
     now_hour = current["time"][:13]
     humidity = 0
@@ -255,9 +254,9 @@ def create_weather_card(city_info: dict, weather: dict) -> bytes:
             break
 
     bg_color = get_temp_color(temp)
-    dark_bg = tuple(max(0, c - 40) for c in bg_color)
+    dark_bg = tuple(max(0, c - 50) for c in bg_color)
 
-    width, height = 800, 600
+    width, height = 800, 550
     img = Image.new("RGB", (width, height), bg_color)
     draw = ImageDraw.Draw(img)
 
@@ -269,63 +268,75 @@ def create_weather_card(city_info: dict, weather: dict) -> bytes:
         draw.line([(0, y), (width, y)], fill=(r, g, b))
 
     try:
-        font_large = ImageFont.truetype("arial.ttf", 72)
-        font_medium = ImageFont.truetype("arial.ttf", 36)
-        font_small = ImageFont.truetype("arial.ttf", 24)
-        font_tiny = ImageFont.truetype("arial.ttf", 18)
+        font_large = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 80)
+        font_medium = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 32)
+        font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 22)
+        font_tiny = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 18)
     except:
-        font_large = ImageFont.load_default()
-        font_medium = ImageFont.load_default()
-        font_small = ImageFont.load_default()
-        font_tiny = ImageFont.load_default()
+        try:
+            font_large = ImageFont.truetype("arial.ttf", 80)
+            font_medium = ImageFont.truetype("arial.ttf", 32)
+            font_small = ImageFont.truetype("arial.ttf", 22)
+            font_tiny = ImageFont.truetype("arial.ttf", 18)
+        except:
+            font_large = ImageFont.load_default()
+            font_medium = ImageFont.load_default()
+            font_small = ImageFont.load_default()
+            font_tiny = ImageFont.load_default()
 
     city_name = city_header(city_info)
-    draw.text((40, 30), city_name, fill="white", font=font_medium)
+    draw.text((40, 25), city_name, fill="white", font=font_medium)
 
-    draw.text((40, 90), f"{emoji} {temp}°C", fill="white", font=font_large)
-    draw.text((40, 175), description, fill=(255, 255, 255, 200), font=font_medium)
+    temp_text = f"{temp}°C"
+    draw.text((40, 70), temp_text, fill="white", font=font_large)
 
-    draw.text((40, 240), f"💨 {wind} км/ч", fill="white", font=font_small)
-    draw.text((250, 240), f"💧 {humidity}%", fill="white", font=font_small)
+    draw.text((40, 165), description, fill=(255, 255, 255), font=font_medium)
+
+    y_info = 215
+    draw.text((40, y_info), f"Ветер: {wind} км/ч", fill="white", font=font_small)
+    draw.text((350, y_info), f"Влажность: {humidity}%", fill="white", font=font_small)
 
     alerts = get_alerts(city_info, weather)
     if alerts:
-        draw.rectangle([(30, 285), (width - 30, 315)], fill=(200, 60, 60, 180))
-        draw.text((40, 288), f"⚠️ {', '.join(alerts)}", fill="white", font=font_tiny)
+        draw.rectangle([(30, 260), (width - 30, 295)], fill=(180, 50, 50))
+        draw.text((40, 265), f"ВНИМАНИЕ: {', '.join(alerts)}", fill="white", font=font_small)
 
     hourly = weather["hourly"]
-    table_y = 330
-    draw.rectangle([(30, table_y), (width - 30, table_y + 30)], fill=(255, 255, 255, 30))
-    draw.text((40, table_y + 5), "Время", fill="white", font=font_tiny)
-    draw.text((150, table_y + 5), "Темп", fill="white", font=font_tiny)
-    draw.text((260, table_y + 5), "Погода", fill="white", font=font_tiny)
-    draw.text((420, table_y + 5), "Ветер", fill="white", font=font_tiny)
-    draw.text((560, table_y + 5), "Влажн.", fill="white", font=font_tiny)
+    table_y = 310
 
-    for i in range(current_idx, min(current_idx + 8, len(hourly["time"]))):
-        row_y = table_y + 30 + (i - current_idx) * 30
+    draw.rectangle([(30, table_y), (width - 30, table_y + 35)], fill=(255, 255, 255, 40))
+    draw.text((40, table_y + 7), "Время", fill="white", font=font_tiny)
+    draw.text((150, table_y + 7), "Темп", fill="white", font=font_tiny)
+    draw.text((280, table_y + 7), "Погода", fill="white", font=font_tiny)
+    draw.text((440, table_y + 7), "Ветер", fill="white", font=font_tiny)
+    draw.text((600, table_y + 7), "Влажн.", fill="white", font=font_tiny)
+
+    rows = min(7, len(hourly["time"]) - current_idx)
+    for i in range(rows):
+        idx = current_idx + i
+        row_y = table_y + 35 + i * 32
         if row_y > height - 40:
             break
 
-        t = hourly["time"][i]
+        t = hourly["time"][idx]
         hour = t[11:16]
-        h_temp = hourly["temperature_2m"][i]
-        h_wind = hourly["wind_speed_10m"][i]
-        h_hum = hourly["relative_humidity_2m"][i]
-        h_code = hourly["weathercode"][i]
-        h_emoji = WEATHER_EMOJI.get(h_code, "🌤")
+        h_temp = hourly["temperature_2m"][idx]
+        h_wind = hourly["wind_speed_10m"][idx]
+        h_hum = hourly["relative_humidity_2m"][idx]
+        h_code = hourly["weathercode"][idx]
+        h_desc = WEATHER_CODES.get(h_code, "")
 
-        if (i - current_idx) % 2 == 0:
-            draw.rectangle([(30, row_y), (width - 30, row_y + 28)], fill=(255, 255, 255, 15))
+        if i % 2 == 0:
+            draw.rectangle([(30, row_y), (width - 30, row_y + 30)], fill=(255, 255, 255, 20))
 
-        draw.text((40, row_y + 3), hour, fill="white", font=font_tiny)
-        draw.text((150, row_y + 3), f"{h_temp}°C", fill="white", font=font_tiny)
-        draw.text((260, row_y + 3), h_emoji, fill="white", font=font_tiny)
-        draw.text((420, row_y + 3), f"{h_wind} км/ч", fill="white", font=font_tiny)
-        draw.text((560, row_y + 3), f"{h_hum}%", fill="white", font=font_tiny)
+        draw.text((40, row_y + 4), hour, fill="white", font=font_tiny)
+        draw.text((150, row_y + 4), f"{h_temp}°C", fill="white", font=font_tiny)
+        draw.text((280, row_y + 4), h_desc, fill="white", font=font_tiny)
+        draw.text((440, row_y + 4), f"{h_wind} км/ч", fill="white", font=font_tiny)
+        draw.text((600, row_y + 4), f"{h_hum}%", fill="white", font=font_tiny)
 
     now = datetime.now(MOSCOW_TZ).strftime("%H:%M  %d.%m.%Y")
-    draw.text((width - 200, height - 30), now, fill=(255, 255, 255, 150), font=font_tiny)
+    draw.text((width - 200, height - 30), now, fill=(255, 255, 255, 180), font=font_tiny)
 
     buf = io.BytesIO()
     img.save(buf, format="PNG")
