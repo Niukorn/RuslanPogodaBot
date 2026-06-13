@@ -1,12 +1,10 @@
 import asyncio
 import logging
 import os
-import io
 from datetime import datetime, timedelta, timezone
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import CommandStart, Command
-from aiogram.types import Message, BufferedInputFile
-from PIL import Image, ImageDraw, ImageFont
+from aiogram.types import Message
 import aiohttp
 
 MOSCOW_TZ = timezone(timedelta(hours=3))
@@ -83,37 +81,27 @@ MONTHS_RU = ["янв", "фев", "мар", "апр", "мая", "июн", "июл
 DAYS_RU = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
 
 WEATHER_CODES = {
-    0: "Ясно",
-    1: "Преим. ясно",
-    2: "Облачно",
-    3: "Пасмурно",
-    45: "Туман",
-    48: "Изморозь",
-    51: "Морось",
-    53: "Морось",
-    55: "Сильная морось",
-    61: "Дождь",
-    63: "Дождь",
-    65: "Сильный дождь",
-    71: "Снег",
-    73: "Снег",
-    75: "Сильный снег",
-    80: "Ливень",
-    81: "Ливень",
-    82: "Сильный ливень",
-    95: "Гроза",
-    96: "Гроза с градом",
-    99: "Сильная гроза",
-}
-
-WEATHER_EMOJI = {
-    0: "☀️", 1: "🌤", 2: "⛅", 3: "☁️",
-    45: "🌫", 48: "🌫",
-    51: "🌧", 53: "🌧", 55: "🌧",
-    61: "🌧", 63: "🌧", 65: "🌧",
-    71: "❄️", 73: "❄️", 75: "❄️",
-    80: "🌧", 81: "🌧", 82: "🌧",
-    95: "⛈", 96: "⛈", 99: "⛈",
+    0: "Ясно ☀️",
+    1: "Преимущественно ясно 🌤",
+    2: "Переменная облачность ⛅",
+    3: "Пасмурно ☁️",
+    45: "Туман 🌫",
+    48: "Изморозь 🌫",
+    51: "Лёгкая морось 🌧",
+    53: "Умеренная морось 🌧",
+    55: "Сильная морось 🌧",
+    61: "Небольшой дождь 🌧",
+    63: "Умеренный дождь 🌧",
+    65: "Сильный дождь 🌧",
+    71: "Небольшой снег ❄️",
+    73: "Умеренный снег ❄️",
+    75: "Сильный снег ❄️",
+    80: "Небольшой ливень 🌧",
+    81: "Умеренный ливень 🌧",
+    82: "Сильный ливень 🌧",
+    95: "Гроза ⛈",
+    96: "Гроза с градом ⛈",
+    99: "Сильная гроза с градом ⛈",
 }
 
 
@@ -172,31 +160,21 @@ async def get_weather(lat: float, lon: float):
         return data
 
 
+def city_header(city_info: dict) -> str:
+    region = city_info.get("region", "")
+    if region and region != city_info["name"]:
+        return f"🌍 {city_info['name']}, {region}"
+    return f"🌍 {city_info['name']}"
+
+
 def save_history(user_id: int, city_info: dict):
     if user_id not in user_history:
         user_history[user_id] = []
-    entry = {"name": city_info["name"], "country": city_info.get("country", ""), "time": datetime.now(MOSCOW_TZ)}
+    entry = {"name": city_info["name"], "time": datetime.now(MOSCOW_TZ)}
     user_history[user_id] = [e for e in user_history[user_id] if e["name"] != city_info["name"]]
     user_history[user_id].insert(0, entry)
     user_history[user_id] = user_history[user_id][:10]
     user_last_city[user_id] = city_info
-
-
-def get_temp_color(temp: float) -> tuple:
-    if temp <= -20:
-        return (30, 60, 120)
-    elif temp <= -10:
-        return (50, 80, 150)
-    elif temp <= 0:
-        return (70, 100, 170)
-    elif temp <= 10:
-        return (90, 140, 190)
-    elif temp <= 20:
-        return (60, 160, 120)
-    elif temp <= 30:
-        return (200, 160, 60)
-    else:
-        return (200, 80, 60)
 
 
 def get_alerts(city_info: dict, weather: dict) -> list[str]:
@@ -207,37 +185,49 @@ def get_alerts(city_info: dict, weather: dict) -> list[str]:
     code = current["weathercode"]
 
     if temp <= -20:
-        alerts.append("ЭКСТРЕМЛЬНЫЙ МОРОЗ!")
+        alerts.append(f"🥶 ЭКСТРЕМЛЬНЫЙ МОРОЗ: {temp}°C! Оставайтесь дома!")
     elif temp <= -10:
-        alerts.append("Сильный мороз")
+        alerts.append(f"❄️ Сильный мороз: {temp}°C. Одевайтесь тепло!")
     elif temp >= 35:
-        alerts.append("ЭКСТРЕМЛЬНАЯ ЖАРА!")
+        alerts.append(f"🔥 ЭКСТРЕМЛЬНАЯ ЖАРА: {temp}°C! Пейте больше воды!")
     elif temp >= 30:
-        alerts.append("Жара")
+        alerts.append(f"🌡 Жара: {temp}°C. Избегайте солнца с 12:00 до 16:00.")
 
     if wind >= 25:
-        alerts.append("СИЛЬНЫЙ ВЕТЕР!")
+        alerts.append(f"💨 СИЛЬНЫЙ ВЕТЕР: {wind} км/ч! Будьте осторожны!")
     elif wind >= 15:
-        alerts.append("Порывистый ветер")
+        alerts.append(f"🌬 Порывистый ветер: {wind} км/ч.")
 
     if code in (95, 96, 99):
-        alerts.append("ГРОЗА!")
+        alerts.append("⛈ ГРОЗА! Не выходите из дома!")
     elif code in (65, 82):
-        alerts.append("Сильный ливень")
+        alerts.append("🌧 Сильный ливень! Возможны подтопления.")
     elif code in (73, 75):
-        alerts.append("Сильный снегопад")
+        alerts.append("❄️ Сильный снегопад! Осторожно на дорогах.")
+
+    daily = weather.get("daily")
+    if daily:
+        for i in range(min(3, len(daily["time"]))):
+            d_max = daily["temperature_2m_max"][i]
+            d_min = daily["temperature_2m_min"][i]
+            d_wind = daily["windspeed_10m_max"][i]
+            d_prec = daily["precipitation_sum"][i]
+            date = daily["time"][i]
+            day_name = "Сегодня" if i == 0 else "Завтра" if i == 1 else date
+
+            if d_wind >= 25:
+                alerts.append(f"💨 {day_name}: ветер до {d_wind} км/ч!")
+            if d_prec >= 20:
+                alerts.append(f"🌧 {day_name}: осадки {d_prec} мм!")
+            if d_max >= 35:
+                alerts.append(f"🔥 {day_name}: жара до {d_max}°C!")
+            if d_min <= -20:
+                alerts.append(f"🥶 {day_name}: мороз до {d_min}°C!")
 
     return alerts
 
 
-def city_header(city_info: dict) -> str:
-    region = city_info.get("region", "")
-    if region and region != city_info["name"]:
-        return f"{city_info['name']}, {region}"
-    return city_info["name"]
-
-
-def create_weather_card(city_info: dict, weather: dict) -> bytes:
+def format_weather(city_info: dict, weather: dict) -> str:
     current = weather["current_weather"]
     temp = current["temperature"]
     wind = current["windspeed"]
@@ -253,116 +243,34 @@ def create_weather_card(city_info: dict, weather: dict) -> bytes:
             current_idx = i
             break
 
-    bg_color = get_temp_color(temp)
-    dark_bg = tuple(max(0, c - 50) for c in bg_color)
-
-    width, height = 800, 550
-    img = Image.new("RGB", (width, height), bg_color)
-    draw = ImageDraw.Draw(img)
-
-    for y in range(height):
-        ratio = y / height
-        r = int(bg_color[0] * (1 - ratio) + dark_bg[0] * ratio)
-        g = int(bg_color[1] * (1 - ratio) + dark_bg[1] * ratio)
-        b = int(bg_color[2] * (1 - ratio) + dark_bg[2] * ratio)
-        draw.line([(0, y), (width, y)], fill=(r, g, b))
-
-    try:
-        font_large = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 80)
-        font_medium = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 32)
-        font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 22)
-        font_tiny = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 18)
-    except Exception:
-        try:
-            font_large = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 80)
-            font_medium = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 32)
-            font_small = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 22)
-            font_tiny = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 18)
-        except Exception:
-            font_large = ImageFont.load_default(size=80)
-            font_medium = ImageFont.load_default(size=32)
-            font_small = ImageFont.load_default(size=22)
-            font_tiny = ImageFont.load_default(size=18)
-
-    city_name = city_header(city_info)
-    draw.text((40, 25), city_name, fill="white", font=font_medium)
-
-    temp_text = f"{temp}°C"
-    draw.text((40, 70), temp_text, fill="white", font=font_large)
-
-    draw.text((40, 165), description, fill=(255, 255, 255), font=font_medium)
-
-    y_info = 215
-    draw.text((40, y_info), f"Ветер: {wind} км/ч", fill="white", font=font_small)
-    draw.text((350, y_info), f"Влажность: {humidity}%", fill="white", font=font_small)
-
     alerts = get_alerts(city_info, weather)
+    alerts_text = ""
     if alerts:
-        draw.rectangle([(30, 260), (width - 30, 295)], fill=(180, 50, 50))
-        draw.text((40, 265), f"ВНИМАНИЕ: {', '.join(alerts)}", fill="white", font=font_small)
+        alerts_text = "\n\n⚠️ ПРЕДУПРЕЖДЕНИЯ:\n" + "\n".join(alerts)
 
+    hourly_lines = []
     hourly = weather["hourly"]
-    table_y = 310
-
-    draw.rectangle([(30, table_y), (width - 30, table_y + 35)], fill=(255, 255, 255, 40))
-    draw.text((40, table_y + 7), "Время", fill="white", font=font_tiny)
-    draw.text((150, table_y + 7), "Темп", fill="white", font=font_tiny)
-    draw.text((280, table_y + 7), "Погода", fill="white", font=font_tiny)
-    draw.text((440, table_y + 7), "Ветер", fill="white", font=font_tiny)
-    draw.text((600, table_y + 7), "Влажн.", fill="white", font=font_tiny)
-
-    rows = min(7, len(hourly["time"]) - current_idx)
-    for i in range(rows):
-        idx = current_idx + i
-        row_y = table_y + 35 + i * 32
-        if row_y > height - 40:
-            break
-
-        t = hourly["time"][idx]
+    for i in range(current_idx, min(current_idx + 12, len(hourly["time"]))):
+        t = hourly["time"][i]
         hour = t[11:16]
-        h_temp = hourly["temperature_2m"][idx]
-        h_wind = hourly["wind_speed_10m"][idx]
-        h_hum = hourly["relative_humidity_2m"][idx]
-        h_code = hourly["weathercode"][idx]
+        h_temp = hourly["temperature_2m"][i]
+        h_wind = hourly["wind_speed_10m"][i]
+        h_hum = hourly["relative_humidity_2m"][i]
+        h_code = hourly["weathercode"][i]
         h_desc = WEATHER_CODES.get(h_code, "")
+        hourly_lines.append(f"🕐 {hour}  {h_temp}°C  {h_desc}  💧{h_hum}%  💨{h_wind}км/ч")
 
-        if i % 2 == 0:
-            draw.rectangle([(30, row_y), (width - 30, row_y + 30)], fill=(255, 255, 255, 20))
-
-        draw.text((40, row_y + 4), hour, fill="white", font=font_tiny)
-        draw.text((150, row_y + 4), f"{h_temp}°C", fill="white", font=font_tiny)
-        draw.text((280, row_y + 4), h_desc, fill="white", font=font_tiny)
-        draw.text((440, row_y + 4), f"{h_wind} км/ч", fill="white", font=font_tiny)
-        draw.text((600, row_y + 4), f"{h_hum}%", fill="white", font=font_tiny)
-
-    now = datetime.now(MOSCOW_TZ).strftime("%H:%M  %d.%m.%Y")
-    draw.text((width - 200, height - 30), now, fill=(255, 255, 255, 180), font=font_tiny)
-
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    buf.seek(0)
-    return buf.getvalue()
-
-
-def format_weather_text(city_info: dict, weather: dict) -> str:
-    current = weather["current_weather"]
-    temp = current["temperature"]
-    wind = current["windspeed"]
-    code = current["weathercode"]
-    description = WEATHER_CODES.get(code, "Неизвестно")
-    emoji = WEATHER_EMOJI.get(code, "🌤")
-
-    now_hour = current["time"][:13]
-    humidity = 0
-    for i, t in enumerate(weather["hourly"]["time"]):
-        if t[:13] == now_hour:
-            humidity = weather["hourly"]["relative_humidity_2m"][i]
-            break
+    hourly_text = "\n".join(hourly_lines)
 
     return (
         f"{city_header(city_info)}\n\n"
-        f"{emoji} {temp}°C — {description}\n"
-        f"💨 {wind} км/ч  💧 {humidity}%"
+        f"🌡 Температура: {temp}°C\n"
+        f"☁️ Погода: {description}\n"
+        f"💨 Ветер: {wind} км/ч\n"
+        f"💧 Влажность: {humidity}%"
+        f"{alerts_text}\n\n"
+        f"📅 Прогноз по часам:\n"
+        f"{hourly_text}"
     )
 
 
@@ -383,30 +291,15 @@ def format_weekly(city_info: dict, weather: dict) -> str:
         d_wind = daily["windspeed_10m_max"][i]
         d_prec = daily["precipitation_sum"][i]
         d_code = daily["weathercode"][i]
-        d_emoji = WEATHER_EMOJI.get(d_code, "🌤")
+        d_desc = WEATHER_CODES.get(d_code, "")
         label = "Сегодня" if i == 0 else "Завтра" if i == 1 else f"{day_name}, {dt.day} {month_name}"
         lines.append(
             f"📆 {label}\n"
-            f"   {d_emoji} {d_min}°C ... {d_max}°C  💨 {d_wind} км/ч  🌧 {d_prec} мм\n"
+            f"   {d_desc}\n"
+            f"   🌡 {d_min}°C ... {d_max}°C  💨 {d_wind} км/ч  🌧 {d_prec} мм\n"
         )
 
     return "\n".join(lines)
-
-
-async def get_city_by_coords(lat: float, lon: float) -> dict:
-    s = await get_session()
-    url = "https://geocoding-api.open-meteo.com/v1/search"
-    params = {"name": "", "count": 1, "language": "ru"}
-    async with s.get(url, params=params, timeout=aiohttp.ClientTimeout(total=5)) as resp:
-        data = await resp.json()
-
-    return {
-        "name": "Ваше местоположение",
-        "lat": lat,
-        "lon": lon,
-        "country": "Россия",
-        "region": f"{round(lat, 4)}, {round(lon, 4)}",
-    }
 
 
 @dp.message(CommandStart())
@@ -418,7 +311,7 @@ async def cmd_start(message: Message):
 async def cmd_commands(message: Message):
     text = (
         "📋 Список команд:\n\n"
-        "🏙 Название города — погода с картинкой\n"
+        "🏙 Название города — текущая погода + прогноз по часам на 12ч\n"
         "📍 Геолокация — погода по вашему местоположению\n"
         "📅 /week — прогноз на 7 дней\n"
         "📜 /history — история запросов\n"
@@ -480,7 +373,7 @@ async def cmd_alerts(message: Message):
     weather = await get_weather(city_info["lat"], city_info["lon"])
     alerts = get_alerts(city_info, weather)
     if not alerts:
-        await message.answer(f"✅ {city_info['name']}: нет предупреждений.")
+        await message.answer(f"✅ {city_info['name']}: нет предупреждений. Погода спокойная!")
     else:
         text = f"⚠️ Предупреждения для {city_info['name']}:\n\n" + "\n".join(alerts)
         await message.answer(text)
@@ -490,13 +383,17 @@ async def cmd_alerts(message: Message):
 async def handle_location(message: Message):
     lat = message.location.latitude
     lon = message.location.longitude
-    city_info = await get_city_by_coords(lat, lon)
+    city_info = {
+        "name": "Ваше местоположение",
+        "lat": lat,
+        "lon": lon,
+        "country": "Россия",
+        "region": f"{round(lat, 4)}, {round(lon, 4)}",
+    }
     save_history(message.from_user.id, city_info)
     weather = await get_weather(lat, lon)
-
-    card = create_weather_card(city_info, weather)
-    photo = BufferedInputFile(card, filename="weather.png")
-    await message.answer_photo(photo)
+    result = format_weather(city_info, weather)
+    await message.answer(result)
 
 
 @dp.message(F.text)
@@ -506,15 +403,13 @@ async def handle_city(message: Message):
         return
     city_info = await get_coordinates(city)
     if not city_info:
-        await message.answer("❌ Город не найден.")
+        await message.answer("❌ Город не найден. Попробуй написать по-другому.")
         return
 
     save_history(message.from_user.id, city_info)
     weather = await get_weather(city_info["lat"], city_info["lon"])
-
-    card = create_weather_card(city_info, weather)
-    photo = BufferedInputFile(card, filename="weather.png")
-    await message.answer_photo(photo)
+    result = format_weather(city_info, weather)
+    await message.answer(result)
 
 
 async def main():
