@@ -1,12 +1,13 @@
 import asyncio
 import logging
+import os
 from datetime import datetime, timedelta
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import CommandStart, Command
 from aiogram.types import Message
 import aiohttp
 
-BOT_TOKEN = "8821412858:AAHKdJcncMwRvrRRg0iXMqlpgE4xfajntlk"
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8821412858:AAHKdJcncMwRvrRRg0iXMqlpgE4xfajntlk")
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
