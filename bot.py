@@ -240,6 +240,55 @@ def get_alerts(city_info: dict, weather: dict) -> list[str]:
     return alerts
 
 
+def get_recommendations(temp: float, wind: float, code: int, humidity: int) -> list[str]:
+    recs = []
+
+    if temp >= 35:
+        recs.append("Одежда: лёгкая, светлая, открытая")
+        recs.append("Головной убор обязателен!")
+        recs.append("Солнцезащитный крем SPF 50+")
+        recs.append("Пейте много воды")
+    elif temp >= 30:
+        recs.append("Одежда: шорты, футболка, футболка без рукавов")
+        recs.append("Солнцезащитные очки и крем SPF 30+")
+        recs.append("Берите бутылку воды")
+    elif temp >= 23:
+        recs.append("Одежда: шорты, футболка, лёгкая обувь")
+        recs.append("Солнцезащитные очки приветствуются")
+    elif temp >= 18:
+        recs.append("Одежда: футболка, лёгкие брюки или джинсы")
+        recs.append("Возьмите лёгкую куртку на вечер")
+    elif temp >= 12:
+        recs.append("Одежда: кофта, джинсы, кроссовки")
+        recs.append("Лёгкая куртка на улицу")
+    elif temp >= 5:
+        recs.append("Одежда: тёплая куртка, свитер")
+        recs.append("Шарф не помешает")
+    elif temp >= -5:
+        recs.append("Одежда: зимняя куртка, шапка, перчатки")
+        recs.append("Тёплые ботинки или сапоги")
+    elif temp >= -15:
+        recs.append("Одежда: тёплая зимняя куртка")
+        recs.append("Шапка, шарф, перчатки обязательны")
+        recs.append("Тёплые ботинки с мехом")
+    else:
+        recs.append("Одежда: максимальное утепление!")
+        recs.append("Термобельё, шуба, валенки")
+        recs.append("Оставайтесь дома если можно")
+
+    rain_codes = {51, 53, 55, 61, 63, 65, 80, 81, 82, 95, 96, 99}
+    if code in rain_codes:
+        recs.append("Возьмите зонт или дождевик!")
+
+    if wind >= 20:
+        recs.append("Избегайте открытых мест — сильный ветер!")
+
+    if humidity >= 80 and temp >= 25:
+        recs.append("На улице душно, пейте больше воды!")
+
+    return recs
+
+
 def format_weather(city_info: dict, weather: dict) -> str:
     current = weather["current_weather"]
     temp = current["temperature"]
@@ -261,6 +310,9 @@ def format_weather(city_info: dict, weather: dict) -> str:
     if alerts:
         alerts_text = "\n\n⚠️ ПРЕДУПРЕЖДЕНИЯ:\n" + "\n".join(alerts)
 
+    recs = get_recommendations(temp, wind, code, humidity)
+    recs_text = "\n\n👗 Рекомендации:\n" + "\n".join(f"• {r}" for r in recs)
+
     hourly_lines = []
     hourly = weather["hourly"]
     for i in range(current_idx, min(current_idx + 12, len(hourly["time"]))):
@@ -281,7 +333,8 @@ def format_weather(city_info: dict, weather: dict) -> str:
         f"☁️ Погода: {description}\n"
         f"💨 Ветер: {wind} км/ч\n"
         f"💧 Влажность: {humidity}%"
-        f"{alerts_text}\n\n"
+        f"{alerts_text}"
+        f"{recs_text}\n\n"
         f"📅 Прогноз по часам:\n"
         f"{hourly_text}"
     )
