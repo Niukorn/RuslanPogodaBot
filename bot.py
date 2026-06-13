@@ -1,11 +1,13 @@
 import asyncio
 import logging
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import CommandStart, Command
 from aiogram.types import Message
 import aiohttp
+
+MOSCOW_TZ = timezone(timedelta(hours=3))
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "8821412858:AAHKdJcncMwRvrRRg0iXMqlpgE4xfajntlk")
 
@@ -183,7 +185,7 @@ WEATHER_CODES = {
 def save_history(user_id: int, city_info: dict):
     if user_id not in user_history:
         user_history[user_id] = []
-    entry = {"name": city_info["name"], "country": city_info["country"], "time": datetime.now()}
+    entry = {"name": city_info["name"], "country": city_info["country"], "time": datetime.now(MOSCOW_TZ)}
     user_history[user_id] = [e for e in user_history[user_id] if e["name"] != city_info["name"]]
     user_history[user_id].insert(0, entry)
     user_history[user_id] = user_history[user_id][:10]
