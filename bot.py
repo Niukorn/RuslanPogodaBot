@@ -341,6 +341,9 @@ async def cmd_week(message: Message):
         return
     city_info = user_last_city[user_id]
     weather = await get_weather(city_info["lat"], city_info["lon"])
+    if "daily" not in weather:
+        await message.answer("❌ Не удалось получить прогноз на неделю. Попробуйте позже.")
+        return
     result = format_weekly(city_info, weather)
     await message.answer(result)
 
