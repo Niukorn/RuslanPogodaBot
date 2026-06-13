@@ -272,17 +272,17 @@ def create_weather_card(city_info: dict, weather: dict) -> bytes:
         font_medium = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 32)
         font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 22)
         font_tiny = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 18)
-    except:
+    except Exception:
         try:
-            font_large = ImageFont.truetype("arial.ttf", 80)
-            font_medium = ImageFont.truetype("arial.ttf", 32)
-            font_small = ImageFont.truetype("arial.ttf", 22)
-            font_tiny = ImageFont.truetype("arial.ttf", 18)
-        except:
-            font_large = ImageFont.load_default()
-            font_medium = ImageFont.load_default()
-            font_small = ImageFont.load_default()
-            font_tiny = ImageFont.load_default()
+            font_large = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 80)
+            font_medium = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 32)
+            font_small = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 22)
+            font_tiny = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 18)
+        except Exception:
+            font_large = ImageFont.load_default(size=80)
+            font_medium = ImageFont.load_default(size=32)
+            font_small = ImageFont.load_default(size=22)
+            font_tiny = ImageFont.load_default(size=18)
 
     city_name = city_header(city_info)
     draw.text((40, 25), city_name, fill="white", font=font_medium)
